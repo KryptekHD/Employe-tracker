@@ -168,3 +168,80 @@ const updateEmployeeRole = ()=>{
         });
     });
 };
+
+const updateEmployeeManager = () => {
+    let sql =`SELECT employee.id, employee.first_name, employee.last_name, employee.manager_id
+    FROM employee`;
+    db.query(sql,(err,response) =>{
+        letEmployeeNAmesArray = [];
+        response.forEach((employee )=>{employee.namesArray.push(`${employee.first_name} ${employee.lastname}`)});
+        
+        let sql = 'SELECT role.id, role.department_name FROM role';
+        db.query(sql,(err,response) =>{
+            if(err) throw err;
+            let roleArray =[];
+            response.forEach((role) => {roleArray.push(role.department_name)});
+
+            inquire.prompt([
+                {
+                    name:'chosenEmployee',
+                    type:'list',
+                    message:'which employee has a new manager',
+                    choices: employeeNamesArray
+                 },
+                 {
+                    name:'chosenRole',
+                    type:'list',
+                    message:'who is ther manager?',
+                    choices: employeeNamesArray,
+                 }
+            ])
+
+            .then((answer) => {
+                let newId, managerId;
+                response.forEach((employee) =>{
+                    if(answer.chosenEmployee === `${employee.first_name} ${employee.last_name}`){
+                        employeeId = employee.id;
+                    }
+                    if(answer.newManager === `${employee.first_name} ${employee.last_name}`){
+                        managerId = employee.id;
+
+                    }
+                });
+
+                if(validate.isSame(answer.chosenEmployee, answer.newManager)){
+                    console.log('invalid manager')
+                }
+                else{
+                    let sql = `UPDATE employee SET employee.manager_id =? WHERE employee.id =?`
+
+                    db.query(sql,[managerId,employeeId],(err) => {
+                        if(err) throw err;
+                        console.log('the employees manager has been updated')
+                    })
+                }
+            });
+        });
+    });
+
+}
+
+const addEmployee = ()=>{
+    inquire .prompt([
+        {
+        name:'newDepartment',
+        type:'input',
+        message:" whos the lucky new employee?",
+        validate: validate.validateString
+        }
+    ])
+    .then((answer) =>{
+        let sql =`INSERT INTO department (department_name) VALUES (?)`;
+
+        connection.query(sql, answer.newDepartment, (error, response) => {
+          if (error) throw error;
+          console.log(answer.newDepartment + ` Department successfully created!`);
+        
+       })
+    })
+}
