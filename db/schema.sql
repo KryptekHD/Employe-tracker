@@ -20,12 +20,12 @@ CREATE TABLE roles(
 
 CREATE TABLE employee(
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    firs_name TEXT,
+    first_name TEXT,
     last_name TEXT,
     role_id INT,
     FOREIGN KEY(role_id)
     REFERENCES roles(id),
-    manger_id INT,
+    manager_id INT,
     FOREIGN KEY (manger_id)
     REFERENCES employee(id)
     ON DELETE SET NULL
