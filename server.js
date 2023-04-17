@@ -1,12 +1,13 @@
 const inquire = require('inquirer');
 const mysql = require('mysql2');
 const validate =require('./javascript/validate');
+const { default: inquirer } = require('inquirer');
 
 
-const PORT = process.env.PORT || 3001;
 
 const db =mysql.createConnection({
     host:'localhost',
+    port: 3306,
     user:'root',
     pasword:'pasword123',
     database:'employee_db'
@@ -14,7 +15,6 @@ const db =mysql.createConnection({
 console.log(`Connected to Employee_db`)
 );
 
-inquire
 inquire.prompt([
     {
     name:'choice',
@@ -73,7 +73,7 @@ inquire.prompt([
         removeDepartment();
     }
     if(choice === 'Quit'){
-        quit();
+        db.end();
     }
 })
 
@@ -229,10 +229,86 @@ const updateEmployeeManager = () => {
 const addEmployee = ()=>{
     inquire .prompt([
         {
-        name:'newDepartment',
-        type:'input',
-        message:" whos the lucky new employee?",
-        validate: validate.validateString
+            type: 'input',
+            name: 'fistName',
+            message: "What is the employee's first name?",
+            validate: addFirstName => {
+              if (addFirstName) {
+                  return true;
+              } else {
+                  console.log('Please enter a first name');
+                  return false;
+              }
+            }
+          },
+          {
+            type: 'input',
+            name: 'lastName',
+            message: "What is the employee's last name?",
+            validate: addLastName => {
+              if (addLastName) {
+                  return true;
+              } else {
+                  console.log('Please enter a last name');
+                  return false;
+              }
+            }
+          }
+    ])
+    .then(answer => {
+        const crit = [answer.fistName, answer.lastName]
+        const roleSql = `SELECT roles.id, roles.role_title FROM roles`;
+        db.promise().query(roleSql, (error, data) => {
+          if (error) throw error; 
+          const roles = data.map(({ id, title }) => ({ name: title, value: id }));
+          inquire.prompt([
+                {
+                  type: 'list',
+                  name: 'role',
+                  message: "What is the employee's role?",
+                  choices: roles
+                }
+              ])
+                .then(roleChoice => {
+                  const role = roleChoice.role;
+                  crit.push(role);
+                  const managerSql =  `SELECT * FROM employee`;
+                  connection.promise().query(managerSql, (error, data) => {
+                    if (error) throw error;
+                    const managers = data.map(({ id, first_name, last_name }) => ({ name: first_name + " "+ last_name, value: id }));
+                    inquire.prompt([
+                      {
+                        type: 'list',
+                        name: 'manager',
+                        message: "Who is the employee's manager?",
+                        choices: managers
+                      }
+                    ])
+                      .then(managerChoice => {
+                        const manager = managerChoice.manager;
+                        crit.push(manager);
+                        const sql =   `INSERT INTO employee (first_name, last_name, roles_id, manager_id)
+                                      VALUES (?, ?, ?, ?)`;
+                        connection.query(sql, crit, (error) => {
+                        if (error) throw error;
+                        console.log("Employee has been added!")
+                        viewAllEmployees();
+                  });
+                });
+              });
+            });
+         });
+       
+    })
+}
+
+const addDepartment = () =>{
+    inquire.promnt([
+        {
+            name: 'newDepartment',
+            type:'input',
+            message:'what new department would you like to add?',
+            validate:validate.validateString
         }
     ])
     .then((answer) =>{
@@ -244,4 +320,120 @@ const addEmployee = ()=>{
         
        })
     })
+}
+
+const removeEmployee = () => {
+    let sql =     `SELECT employee.id, employee.first_name, employee.last_name FROM employee`;
+
+    connection.promise().query(sql, (error, response) => {
+      if (error) throw error;
+      let employeeNamesArray = [];
+      response.forEach((employee) => {employeeNamesArray.push(`${employee.first_name} ${employee.last_name}`);});
+
+      inquire.prompt([
+          {
+            name: 'chosenEmployee',
+            type: 'list',
+            message: 'Which employee would you like to remove?',
+            choices: employeeNamesArray
+          }
+        ])
+        .then((answer) => {
+          let employeeId;
+
+          response.forEach((employee) => {
+            if (
+              answer.chosenEmployee ===
+              `${employee.first_name} ${employee.last_name}`
+            ) {
+              employeeId = employee.id;
+            }
+          });
+
+          let sql = `DELETE FROM employee WHERE employee.id = ?`;
+          db.query(sql, [employeeId], (error) => {
+            if (error) throw error;
+            console.log(chalk.redBright(`Employee Successfully Removed`));
+            viewAllEmployees();
+          });
+        });
+    });
+}
+
+const removeRole = () => {
+    let sql = `SELECT roles.id, roles.role_title FROM roles`;
+
+    db.promise().query(sql, (error, response) => {
+      if (error) throw error;
+      let roleNamesArray = [];
+      response.forEach((roles) => {roleNamesArray.push(roles.role_title);});
+
+      inquire.prompt([
+          {
+            name: 'removingRole',
+            type: 'list',
+            message: 'What role would you like to remove?',
+            choices: roleNamesArray
+          }
+        ])
+        .then((answer) => {
+          let roleId;
+
+          response.forEach((role) => {
+            if (answer.chosenRole === roles.role_title) {
+              roleId = roles.id;
+            }
+          });
+
+          let sql =   `DELETE FROM roles WHERE roles.id = ?`;
+          db.promise().query(sql, [roleId], (error) => {
+            if (error) throw error;
+           
+            console.log(`the role has been removed from the data base!`);
+            viewAllRoles();
+          });
+        });
+    });
+
+}
+
+const removeDepartment = () => {
+    let sql =   `SELECT department.id, department.department_name FROM department`;
+    connection.promise().query(sql, (error, response) => {
+      if (error) throw error;
+      let departmentNamesArray = [];
+      response.forEach((department) => {departmentNamesArray.push(department.department_name);});
+
+      inquire.prompt([
+          {
+            name: 'chosenDept',
+            type: 'list',
+            message: 'Which department would you like to remove?',
+            choices: departmentNamesArray
+          }
+        ])
+        .then((answer) => {
+          let departmentId;
+
+          response.forEach((department) => {
+            if (answer.chosenDept === department.department_name) {
+              departmentId = department.id;
+            }
+          });
+
+          let sql = `DELETE FROM department WHERE department.id = ?`;
+          db.promise().query(sql,[departmentId], (error) => {
+            if (error) throw error;
+            
+            console.log(`Department has been removed`);
+            
+            viewAllDepartments();
+          });
+        });
+    });
+
+}
+
+const  quit = () => {
+
 }
